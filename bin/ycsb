@@ -76,6 +76,7 @@ DATABASES = {
     "foundationdb" : "com.yahoo.ycsb.db.foundationdb.FoundationDBClient",
     "geode"        : "com.yahoo.ycsb.db.GeodeClient",
     "googlebigtable"  : "com.yahoo.ycsb.db.GoogleBigtableClient",
+    "googlecloudstorage"  : "com.yahoo.ycsb.db.GoogleCloudStorageClient",
     "googledatastore" : "com.yahoo.ycsb.db.GoogleDatastoreClient",
     "hbase098"     : "com.yahoo.ycsb.db.HBaseClient",
     "hbase10"      : "com.yahoo.ycsb.db.HBaseClient10",
