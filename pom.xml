@@ -135,7 +135,6 @@ LICENSE file.
     <module>foundationdb</module>
     <module>geode</module>
     <module>googlebigtable</module>
-    <module>googlecloudstorage</module>
     <module>googledatastore</module>
     <module>hbase098</module>
     <module>hbase10</module>
