@@ -30,7 +30,7 @@ public class GoogleCloudStorageClient extends DB {
   private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
 
   /**
-   * Delete a file from S3 Storage.
+   * Delete a file from GCS.
    *
    * @param bucket
    *            The name of the bucket
@@ -51,7 +51,7 @@ public class GoogleCloudStorageClient extends DB {
 
   /**
    * Initialize any state for the storage.
-   * Called once per S3 instance; If the client is not null it is re-used.
+   * Called once per GCS instance; If the client is not null it is re-used.
    */
   @Override
   public void init() throws DBException {
@@ -111,7 +111,7 @@ public class GoogleCloudStorageClient extends DB {
   @Override
   public Status insert(String bucket, String key,
                        Map<String, ByteIterator> values) {
-    return writeToStorage(bucket, key, values);
+    return writeToStorage(bucket, key, values, false);
   }
 
   /**
@@ -151,12 +151,11 @@ public class GoogleCloudStorageClient extends DB {
   @Override
   public Status update(String bucket, String key,
                        Map<String, ByteIterator> values) {
-    return writeToStorage(bucket, key, values);
+    return writeToStorage(bucket, key, values, true);
   }
 
   /**
-   * Perform a range scan for a set of files in the bucket. Each
-   * field/value pair from the result will be stored in a HashMap.
+   * Not supported!
    *
    * @param bucket
    *            The name of the bucket
@@ -178,7 +177,7 @@ public class GoogleCloudStorageClient extends DB {
   }
 
   /**
-   * Upload a new object to S3 or update an object on S3.
+   * Upload a new object to GCS or update an object on GCS.
    *
    * @param bucket
    *            The name of the bucket
@@ -189,7 +188,7 @@ public class GoogleCloudStorageClient extends DB {
    *
    */
   protected Status writeToStorage(String bucket, String key,
-                                  Map<String, ByteIterator> values) {
+                                  Map<String, ByteIterator> values, boolean isUpdate) {
     int totalSize = 0;
     int fieldCount = values.size(); //number of fields to concatenate
     // getting the first field in the values
@@ -197,7 +196,15 @@ public class GoogleCloudStorageClient extends DB {
     // getting the content of just one field
     byte[] sourceArray = values.get(keyToSearch).toArray();
     int sizeArray = sourceArray.length; //size of each array
-    totalSize = sizeArray*fieldCount;
+    Blob blob = null;
+    if (isUpdate) {
+      blob = storage.get(BlobId.of(bucket, key));
+      int sizeOfFile = Math.toIntExact(blob.getSize());
+      fieldCount = sizeOfFile/sizeArray;
+      totalSize = sizeOfFile;
+    } else {
+      totalSize = sizeArray * fieldCount;
+    }
     byte[] destinationArray = new byte[totalSize];
     int offset = 0;
     for (int i = 0; i < fieldCount; i++) {
@@ -205,9 +212,14 @@ public class GoogleCloudStorageClient extends DB {
       offset += sizeArray;
     }
     try (InputStream input = new ByteArrayInputStream(destinationArray)) {
-      BlobId blobId = BlobId.of(bucket, key);
-      BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType("text/plain").build();
-      Blob blob = storage.create(blobInfo, input);
+      if (isUpdate) {
+        BlobInfo blobInfo = blob.toBuilder().setContentType("text/plain").build();
+        storage.create(blobInfo, input);
+      } else {
+        BlobId blobId = BlobId.of(bucket, key);
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType("text/plain").build();
+        storage.create(blobInfo, input);
+      }
     } catch (Exception e) {
       System.err.println("Error in the creation of the stream :"+e.toString());
       e.printStackTrace();
@@ -218,7 +230,7 @@ public class GoogleCloudStorageClient extends DB {
   }
 
   /**
-   * Download an object from S3.
+   * Download an object from GCS.
    *
    * @param bucket
    *            The name of the bucket
