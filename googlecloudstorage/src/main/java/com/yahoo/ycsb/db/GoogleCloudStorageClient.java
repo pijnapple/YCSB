@@ -1,10 +1,7 @@
 package com.yahoo.ycsb.db;
 
 import com.google.cloud.storage.*;
-import com.yahoo.ycsb.ByteIterator;
-import com.yahoo.ycsb.DB;
-import com.yahoo.ycsb.DBException;
-import com.yahoo.ycsb.Status;
+import com.yahoo.ycsb.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -33,26 +30,23 @@ public class GoogleCloudStorageClient extends DB {
   private static final AtomicInteger INIT_COUNT = new AtomicInteger(0);
 
   /**
-   * Cleanup any state for this storage.
-   * Called once per S3 instance;
-   */
-  @Override
-  public void cleanup() throws DBException {
-  }
-
-  /**
    * Delete a file from S3 Storage.
    *
    * @param bucket
    *            The name of the bucket
    * @param key
    * The record key of the file to delete.
-   * @return OK on success, otherwise ERROR. See the
-   * {@link DB} class's description for a discussion of error codes.
+   * @return OK on success, otherwise ERROR.
    */
   @Override
   public Status delete(String bucket, String key) {
-    return null;
+    BlobId blobId = BlobId.of(bucket, key);
+    boolean deleted = storage.delete(blobId);
+    if (deleted) {
+      return Status.OK;
+    } else {
+      return Status.ERROR;
+    }
   }
 
   /**
@@ -138,7 +132,7 @@ public class GoogleCloudStorageClient extends DB {
   @Override
   public Status read(String bucket, String key, Set<String> fields,
                      Map<String, ByteIterator> result) {
-    return Status.OK;
+    return readFromStorage(bucket, key, result);
   }
 
   /**
@@ -216,6 +210,32 @@ public class GoogleCloudStorageClient extends DB {
       Blob blob = storage.create(blobInfo, input);
     } catch (Exception e) {
       System.err.println("Error in the creation of the stream :"+e.toString());
+      e.printStackTrace();
+      return Status.ERROR;
+    }
+
+    return Status.OK;
+  }
+
+  /**
+   * Download an object from S3.
+   *
+   * @param bucket
+   *            The name of the bucket
+   * @param key
+   *            The file key of the object to upload/update.
+   * @param result
+   *            The Hash map where data from the object are written
+   *
+   */
+  protected Status readFromStorage(String bucket, String key,
+                                   Map<String, ByteIterator> result) {
+    try {
+      Blob blob = storage.get(BlobId.of(bucket, key));
+      byte[] objectData = blob.getContent();
+      result.put(key, new ByteArrayByteIterator(objectData));
+    } catch (Exception e){
+      System.err.println("Not possible to get the object "+key);
       e.printStackTrace();
       return Status.ERROR;
     }
